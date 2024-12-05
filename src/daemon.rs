@@ -4,9 +4,12 @@ use std::path::PathBuf;
 use std::process;
 use std::thread;
 use std::time::Duration;
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::io::{Read, Write};
 
-pub const PID_FILE: &str = "/tmp/example_daemon.pid";
-pub const LOG_FILE: &str = "/tmp/example_daemon.log";
+pub const PID_FILE: &str = "/tmp/musicrp.pid";
+pub const LOG_FILE: &str = "/tmp/musicrp.log";
+pub const SOCKET_PATH: &str = "/tmp/musicrp.sock";
 
 pub fn start_daemon() {
     if is_running() {
@@ -37,17 +40,28 @@ pub fn start_daemon() {
 }
 
 fn daemon_logic() {
+    // Set up the Unix domain socket
+    if std::path::Path::new(SOCKET_PATH).exists() {
+        std::fs::remove_file(SOCKET_PATH).unwrap();
+    }
+    
+    let listener = UnixListener::bind(SOCKET_PATH).unwrap();
+    
     loop {
-        // Example daemon work
-        let mut log = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(LOG_FILE)
-            .unwrap();
-
-        use std::io::Write;
-        writeln!(log, "Daemon is running...").unwrap();
-        thread::sleep(Duration::from_secs(60));
+        match listener.accept() {
+            Ok((mut socket, _)) => {
+                let mut buffer = [0; 1024];
+                let n = socket.read(&mut buffer).unwrap();
+                let message = String::from_utf8_lossy(&buffer[..n]);
+                
+                if message == "ping" {
+                    socket.write_all(b"pong").unwrap();
+                }
+            }
+            Err(e) => {
+                eprintln!("Error accepting connection: {}", e);
+            }
+        }
     }
 }
 
@@ -86,4 +100,20 @@ pub fn is_running() -> bool {
     };
 
     unsafe { libc::kill(pid, 0) == 0 }
+}
+
+pub fn send_ping() -> Result<(), Box<dyn std::error::Error>> {
+    if !is_running() {
+        println!("Daemon is not running");
+        return Ok(());
+    }
+
+    let mut stream = UnixStream::connect(SOCKET_PATH)?;
+    stream.write_all(b"ping")?;
+
+    let mut response = String::new();
+    stream.read_to_string(&mut response)?;
+
+    println!("Received: {}", response);
+    Ok(())
 }

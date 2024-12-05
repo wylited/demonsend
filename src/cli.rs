@@ -15,4 +15,6 @@ pub enum Commands {
     Status,
     /// Stop the daemon
     Stop,
+    /// Ping the daemon
+    Ping,
 }
