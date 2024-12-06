@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod daemon;
+mod protocol;
 
 use crate::cli::{Cli, Commands, ConfigCommands};
 use clap::Parser;

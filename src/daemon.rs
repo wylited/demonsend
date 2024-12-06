@@ -1,3 +1,4 @@
+use crate::protocol::LocalSendInstance;
 use daemonize::Daemonize;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -37,32 +38,53 @@ pub fn start_daemon() {
     }
 }
 
-fn daemon_logic() {
-    // Set up the Unix domain socket
-    if std::path::Path::new(SOCKET_PATH).exists() {
-        std::fs::remove_file(SOCKET_PATH).unwrap();
-    }
+pub fn daemon_logic() {
+    // Create a new tokio runtime
+    let runtime = tokio::runtime::Runtime::new().unwrap();
 
-    let listener = UnixListener::bind(SOCKET_PATH).unwrap();
+    runtime.block_on(async {
+        // Set up the Unix domain socket
+        if std::path::Path::new(SOCKET_PATH).exists() {
+            std::fs::remove_file(SOCKET_PATH).unwrap();
+        }
 
-    loop {
-        match listener.accept() {
-            Ok((mut socket, _)) => {
-                let mut buffer = [0; 1024];
-                let n = socket.read(&mut buffer).unwrap();
-                let message = String::from_utf8_lossy(&buffer[..n]);
+        let listener = UnixListener::bind(SOCKET_PATH).unwrap();
+        let demonsend = LocalSendInstance::new().await;
 
-                if message == "ping" {
-                    socket.write_all(b"pong").unwrap();
+        // Start the announcement loop in a separate task
+        let announcement_loop = tokio::spawn({
+            let announcement = demonsend.device_info.as_json();
+            let socket = demonsend.udp_socket.clone();
+
+            async move {
+                loop {
+                    let _ = socket
+                        .send_to(announcement.as_bytes(), "224.0.0.167:53317")
+                        .await;
+                    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
                 }
             }
-            Err(e) => {
-                eprintln!("Error accepting connection: {}", e);
+        });
+
+        // Handle Unix socket communications
+        loop {
+            match listener.accept() {
+                Ok((mut socket, _)) => {
+                    let mut buffer = [0; 1024];
+                    let n = socket.read(&mut buffer).unwrap();
+                    let message = String::from_utf8_lossy(&buffer[..n]);
+
+                    if message == "ping" {
+                        socket.write_all(b"pong").unwrap();
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error accepting connection: {}", e);
+                }
             }
         }
-    }
+    });
 }
-
 pub fn check_status() {
     if is_running() {
         println!("Daemon is running");
