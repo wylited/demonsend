@@ -1,7 +1,8 @@
 mod cli;
+mod config;
 mod daemon;
 
-use crate::cli::{Cli, Commands};
+use crate::cli::{Cli, Commands, ConfigCommands};
 use clap::Parser;
 use std::process;
 
@@ -18,5 +19,36 @@ fn main() {
                 process::exit(1);
             }
         }
+        Commands::Config { command } => {
+            if let Err(e) = handle_config(command) {
+                eprintln!("Error handling config: {}", e);
+                process::exit(1);
+            }
+        }
     }
+}
+
+fn handle_config(command: &ConfigCommands) -> anyhow::Result<()> {
+    match command {
+        ConfigCommands::Show => {
+            let config = crate::config::Config::load()?;
+            println!("Current configuration:");
+            println!("Default Downloads Directory: {:?}", config.download_dir);
+        }
+        ConfigCommands::Set { download_dir } => {
+            let mut config = crate::config::Config::load()?;
+
+            if let Some(download_dir) = download_dir {
+                config.download_dir = download_dir.clone();
+            }
+
+            config.save()?;
+            println!("Configuration updated successfully!");
+        }
+        ConfigCommands::Init {} => {
+            let config = crate::config::Config::initialize_interactive()?;
+            config.save()?;
+        }
+    }
+    Ok(())
 }

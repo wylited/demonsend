@@ -1,15 +1,13 @@
 use daemonize::Daemonize;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
+use std::io::{Read, Write};
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::process;
-use std::thread;
-use std::time::Duration;
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::io::{Read, Write};
 
-pub const PID_FILE: &str = "/tmp/musicrp.pid";
-pub const LOG_FILE: &str = "/tmp/musicrp.log";
-pub const SOCKET_PATH: &str = "/tmp/musicrp.sock";
+pub const PID_FILE: &str = "/tmp/demonsend.pid";
+pub const LOG_FILE: &str = "/tmp/demonsend.log";
+pub const SOCKET_PATH: &str = "/tmp/demonsend.sock";
 
 pub fn start_daemon() {
     if is_running() {
@@ -44,16 +42,16 @@ fn daemon_logic() {
     if std::path::Path::new(SOCKET_PATH).exists() {
         std::fs::remove_file(SOCKET_PATH).unwrap();
     }
-    
+
     let listener = UnixListener::bind(SOCKET_PATH).unwrap();
-    
+
     loop {
         match listener.accept() {
             Ok((mut socket, _)) => {
                 let mut buffer = [0; 1024];
                 let n = socket.read(&mut buffer).unwrap();
                 let message = String::from_utf8_lossy(&buffer[..n]);
-                
+
                 if message == "ping" {
                     socket.write_all(b"pong").unwrap();
                 }

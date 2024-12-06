@@ -17,4 +17,22 @@ pub enum Commands {
     Stop,
     /// Ping the daemon
     Ping,
+    /// Configure the daemon
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ConfigCommands {
+    /// Set configuration values
+    Set {
+        #[arg(long)]
+        download_dir: Option<String>,
+    },
+    /// Show current configuration
+    Show,
+    /// Initialize configuration interactively
+    Init,
 }
