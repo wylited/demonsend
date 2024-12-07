@@ -15,8 +15,12 @@ pub enum Commands {
     Status,
     /// Stop the daemon
     Stop,
-    /// Ping the daemon
-    Ping,
+    /// Send a command to the daemon
+    Send {
+        #[arg(long)]
+        command: String,
+    },
+
     /// Configure the daemon
     Config {
         #[command(subcommand)]

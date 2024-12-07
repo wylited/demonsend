@@ -5,7 +5,6 @@ mod protocol;
 
 use crate::cli::{Cli, Commands, ConfigCommands};
 use clap::Parser;
-use log::error;
 use std::process;
 
 fn main() -> anyhow::Result<()> {
@@ -16,7 +15,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Start => daemon::start_daemon(),
         Commands::Status => daemon::check_status(),
         Commands::Stop => daemon::stop_daemon(),
-        Commands::Ping => Ok(if let Err(e) = daemon::send_ping() {
+        Commands::Send { command } => Ok(if let Err(e) = daemon::send_command(command) {
             eprintln!("Error sending ping: {}", e);
             process::exit(1);
         }),

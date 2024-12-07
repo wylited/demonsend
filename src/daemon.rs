@@ -1,25 +1,24 @@
-use crate::protocol::LocalSendInstance;
+use crate::protocol::LocalSend;
+use anyhow::Result;
 use daemonize::Daemonize;
-use log::{error, info};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::process;
-use anyhow::Result;
 
 pub const PID_FILE: &str = "/tmp/demonsend.pid";
-pub const PRINTLN_FILE: &str = "/tmp/demonsend.println";
+pub const LOG_FILE: &str = "/tmp/demonsend.log";
 pub const SOCKET_PATH: &str = "/tmp/demonsend.sock";
 
-pub fn start_daemon() -> Result<()>{
+pub fn start_daemon() -> Result<()> {
     if is_running() {
         println!("Daemon is already running!");
         process::exit(1);
     }
 
-    let stdout = File::create(PRINTLN_FILE)?;
-    let stderr = File::create(PRINTLN_FILE)?;
+    let stdout = File::create(LOG_FILE)?;
+    let stderr = File::create(LOG_FILE)?;
 
     let daemonize = Daemonize::new()
         .pid_file(PID_FILE)
@@ -31,7 +30,7 @@ pub fn start_daemon() -> Result<()>{
     match daemonize.start() {
         Ok(_) => {
             println!("Daemon started");
-            daemon_logic();
+            daemon_logic()?;
         }
         Err(e) => {
             eprintln!("Error starting daemon: {}", e);
@@ -41,20 +40,18 @@ pub fn start_daemon() -> Result<()>{
     Ok(())
 }
 
-pub fn daemon_logic() -> Result<()>{
-    // Create a new tokio runtime
+pub fn daemon_logic() -> Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
 
     runtime.block_on(async {
-        // Set up the Unix domain socket
         if std::path::Path::new(SOCKET_PATH).exists() {
             std::fs::remove_file(SOCKET_PATH).unwrap();
         }
 
         let listener = UnixListener::bind(SOCKET_PATH).unwrap();
-        let demonsend = LocalSendInstance::new().await;
+        let demonsend = LocalSend::new().await;
 
-        // Start the announcement loop in a separate task
+        // Start the announcement loop
         let _announcement_loop = tokio::spawn({
             let announcement = demonsend.device_info.as_json();
             let socket = demonsend.udp_socket.clone();
@@ -64,8 +61,24 @@ pub fn daemon_logic() -> Result<()>{
                     let _ = socket
                         .send_to(announcement.as_bytes(), "224.0.0.167:53317")
                         .await;
-                    println!("Announcement sent");
                     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                }
+            }
+        });
+
+        // Start the UDP listener loop
+        let _udp_listener = tokio::spawn({
+            let demonsend = demonsend.clone();
+
+            async move {
+                let mut buf = [0; 1024];
+                loop {
+                    if let Ok((size, _)) = demonsend.udp_socket.recv_from(&mut buf).await {
+                        println!("Received something: {} bytes", size);
+                        if let Err(e) = demonsend.handle_announcement(&buf[..size]).await {
+                            eprintln!("Error handling announcement: {}", e);
+                        }
+                    }
                 }
             }
         });
@@ -78,8 +91,19 @@ pub fn daemon_logic() -> Result<()>{
                     let n = socket.read(&mut buffer).unwrap();
                     let message = String::from_utf8_lossy(&buffer[..n]);
 
-                    if message == "ping" {
-                        socket.write_all(b"pong").unwrap();
+                    match message.as_ref() {
+                        "ping" => {
+                            socket.write_all(b"pong").unwrap();
+                        }
+                        "list" => {
+                            // Add a command to list peers
+                            let peers = demonsend.peers.lock().await;
+                            let peers_json = serde_json::to_string(&*peers).unwrap();
+                            socket.write_all(peers_json.as_bytes()).unwrap();
+                        }
+                        _ => {
+                            socket.write_all(b"unknown command").unwrap();
+                        }
                     }
                 }
                 Err(e) => {
@@ -103,7 +127,7 @@ pub fn check_status() -> Result<()> {
 pub fn stop_daemon() -> Result<()> {
     if !is_running() {
         println!("Daemon is not running");
-        return Ok(())
+        return Ok(());
     }
 
     let pid = std::fs::read_to_string(PID_FILE).unwrap();
@@ -130,14 +154,14 @@ pub fn is_running() -> bool {
     unsafe { libc::kill(pid, 0) == 0 }
 }
 
-pub fn send_ping() -> Result<(), anyhow::Error> {
+pub fn send_command(command: &String) -> Result<()> {
     if !is_running() {
         println!("Daemon is not running");
         return Ok(());
     }
 
     let mut stream = UnixStream::connect(SOCKET_PATH)?;
-    stream.write_all(b"ping")?;
+    stream.write_all(command.as_bytes())?;
 
     let mut response = String::new();
     stream.read_to_string(&mut response)?;
