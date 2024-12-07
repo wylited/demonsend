@@ -51,6 +51,11 @@ pub fn daemon_logic() -> Result<()> {
         let listener = UnixListener::bind(SOCKET_PATH).unwrap();
         let demonsend = LocalSend::new().await;
 
+        if let Err(e) = demonsend.start_http_server().await {
+            eprintln!("Failed to start HTTP server: {}", e);
+            return;
+        }
+
         // Start the announcement loop
         let _announcement_loop = tokio::spawn({
             let announcement = demonsend.device_info.as_json();
@@ -74,7 +79,6 @@ pub fn daemon_logic() -> Result<()> {
                 let mut buf = [0; 1024];
                 loop {
                     if let Ok((size, _)) = demonsend.udp_socket.recv_from(&mut buf).await {
-                        println!("Received something: {} bytes", size);
                         if let Err(e) = demonsend.handle_announcement(&buf[..size]).await {
                             eprintln!("Error handling announcement: {}", e);
                         }
@@ -96,10 +100,13 @@ pub fn daemon_logic() -> Result<()> {
                             socket.write_all(b"pong").unwrap();
                         }
                         "list" => {
-                            // Add a command to list peers
                             let peers = demonsend.peers.lock().await;
                             let peers_json = serde_json::to_string(&*peers).unwrap();
                             socket.write_all(peers_json.as_bytes()).unwrap();
+                        }
+                        "refresh" => {
+                            let mut peers = demonsend.peers.lock().await;
+                            peers.clear();
                         }
                         _ => {
                             socket.write_all(b"unknown command").unwrap();
