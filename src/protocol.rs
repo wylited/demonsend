@@ -9,7 +9,7 @@ use axum::{
 };
 use std::net::SocketAddr;
 
-use crate::protocol_v1::{handle_v1_info, handle_v1_register, DeviceInfoV1};
+use crate::{config::Config, protocol_v1::{handle_v1_info, handle_v1_register, DeviceInfoV1}};
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -78,7 +78,7 @@ impl LocalSend {
     pub async fn new() -> Self {
         let device_info = DeviceInfoV2 {
             alias: "demonsend".to_string(),
-            version: "2.0".to_string(),
+            version: "2.1".to_string(),
             deviceModel: None,
             deviceType: "headless".to_string(),
             fingerprint: Uuid::new_v4().to_string(),
@@ -89,6 +89,29 @@ impl LocalSend {
         };
 
         let socket = UdpSocket::bind("0.0.0.0:53317").await.unwrap();
+        socket.join_multicast_v4("224.0.0.167".parse().unwrap(), "0.0.0.0".parse().unwrap()).unwrap();
+
+        Self {
+            device_info,
+            udp_socket: Arc::new(socket),
+            peers: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub async fn from_config(config: Config) -> Self {
+        let device_info = DeviceInfoV2 {
+            alias: config.alias,
+            version: "2.1".to_string(),
+            deviceModel: config.deviceModel,
+            deviceType: config.deviceType,
+            fingerprint: Uuid::new_v4().to_string(),
+            port: config.port.clone(),
+            protocol: config.protocol,
+            download: config.download,
+            announce: config.announce,
+        };
+
+        let socket = UdpSocket::bind(&format!("0.0.0.0:{}", config.port)).await.unwrap();
         socket.join_multicast_v4("224.0.0.167".parse().unwrap(), "0.0.0.0".parse().unwrap()).unwrap();
 
         Self {

@@ -13,7 +13,7 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Start => daemon::start_daemon(),
+        Commands::Start => daemon::start_daemon(crate::config::Config::load()?),
         Commands::Status => daemon::check_status(),
         Commands::Stop => daemon::stop_daemon(),
         Commands::Send { command } => Ok(if let Err(e) = daemon::send_command(command) {

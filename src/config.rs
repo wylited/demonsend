@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use directories::{ProjectDirs, UserDirs};
+use inquire::{Confirm, Select, Text};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -7,6 +8,13 @@ use std::path::PathBuf;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub download_dir: String,
+    pub alias: String,
+    pub deviceModel: Option<String>,
+    pub deviceType: String,
+    pub port: u16,
+    pub protocol: String,
+    pub download: bool,
+    pub announce: bool,
 }
 
 impl Default for Config {
@@ -19,10 +27,24 @@ impl Default for Config {
                     .to_str()
                     .unwrap()
                     .to_string(),
+                alias: "demonsend".to_string(),
+                deviceModel: None,
+                deviceType: "headless".to_string(),
+                port: 53317,
+                protocol: "http".to_string(),
+                download: true,
+                announce: true,
             };
         }
         return Config {
             download_dir: "".to_string(),
+            alias: "demonsend".to_string(),
+            deviceModel: None,
+            deviceType: "headless".to_string(),
+            port: 53317,
+            protocol: "http".to_string(),
+            download: true,
+            announce: true,
         };
     }
 }
@@ -65,13 +87,70 @@ fn get_config_path() -> Result<PathBuf> {
 impl Config {
     pub fn initialize_interactive() -> Result<Self> {
         println!("Welcome to demonsend configuration!");
-        println!("Please enter your preferred downloads directory:");
 
-        let mut download_dir = String::new();
-        std::io::stdin().read_line(&mut download_dir)?;
-        let download_dir = download_dir.trim().to_string();
+        let default_dirs = UserDirs::new()
+            .and_then(|dirs| dirs.download_dir().map(|p| p.to_string_lossy().to_string()))
+            .unwrap_or_default();
 
-        let config = Config { download_dir };
+        let download_dir = loop {
+            if let Ok(input) = Text::new("Enter your preferred downloads directory:").prompt() {
+                if let Ok(path) = fs::canonicalize(&input) {
+                    break path.to_string_lossy().to_string();
+                }
+                println!("Please enter a valid path");
+            }
+        };
+
+        let alias = Text::new("Enter your alias:")
+            .with_default("demonsend")
+            .prompt()?;
+
+        let deviceModel = Text::new("Enter your device model:")
+            .with_default("")
+            .prompt()
+            .ok();
+
+        let device_types = vec!["mobile", "desktop", "web", "headless", "server"];
+
+        let deviceType = Select::new("Select your device type:", device_types)
+            .with_starting_cursor(3) // headless as default
+            .prompt()?;
+
+        let protocols = vec!["http", "https"];
+        let protocol = Select::new("Select protocol:", protocols)
+            .with_starting_cursor(0) // https as default
+            .prompt()?;
+
+        let port = loop {
+            if let Ok(input) = Text::new("Enter port number:")
+                .with_default("53317")
+                .prompt()
+            {
+                if let Ok(port) = input.parse::<u16>() {
+                    break port;
+                }
+                println!("Please enter a valid port number");
+            }
+        };
+
+        let download = Confirm::new("Enable downloads?")
+            .with_default(true)
+            .prompt()?;
+
+        let annonunce = Confirm::new("Enable announcements?")
+            .with_default(true)
+            .prompt()?;
+
+        let config = Config {
+            download_dir,
+            alias,
+            deviceModel,
+            deviceType: deviceType.to_string(),
+            port,
+            protocol: protocol.to_string(),
+            download,
+            annonunce,
+        };
 
         config.save()?;
         println!("Configuration saved successfully!");

@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::protocol::LocalSend;
 use anyhow::Result;
 use daemonize::Daemonize;
@@ -11,7 +12,8 @@ pub const PID_FILE: &str = "/tmp/demonsend.pid";
 pub const LOG_FILE: &str = "/tmp/demonsend.log";
 pub const SOCKET_PATH: &str = "/tmp/demonsend.sock";
 
-pub fn start_daemon() -> Result<()> {
+pub fn start_daemon(config: Config) -> Result<()> {
+    let _ = config;
     if is_running() {
         println!("Daemon is already running!");
         process::exit(1);
@@ -30,7 +32,7 @@ pub fn start_daemon() -> Result<()> {
     match daemonize.start() {
         Ok(_) => {
             println!("Daemon started");
-            daemon_logic()?;
+            daemon_logic(config)?;
         }
         Err(e) => {
             eprintln!("Error starting daemon: {}", e);
@@ -40,7 +42,7 @@ pub fn start_daemon() -> Result<()> {
     Ok(())
 }
 
-pub fn daemon_logic() -> Result<()> {
+pub fn daemon_logic(config: Config) -> Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
 
     runtime.block_on(async {
