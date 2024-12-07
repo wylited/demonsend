@@ -5,27 +5,25 @@ mod protocol;
 
 use crate::cli::{Cli, Commands, ConfigCommands};
 use clap::Parser;
+use log::error;
 use std::process;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
+    env_logger::init();
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::Start => daemon::start_daemon(),
         Commands::Status => daemon::check_status(),
         Commands::Stop => daemon::stop_daemon(),
-        Commands::Ping => {
-            if let Err(e) = daemon::send_ping() {
-                eprintln!("Error sending ping: {}", e);
-                process::exit(1);
-            }
-        }
-        Commands::Config { command } => {
-            if let Err(e) = handle_config(command) {
-                eprintln!("Error handling config: {}", e);
-                process::exit(1);
-            }
-        }
+        Commands::Ping => Ok(if let Err(e) = daemon::send_ping() {
+            eprintln!("Error sending ping: {}", e);
+            process::exit(1);
+        }),
+        Commands::Config { command } => Ok(if let Err(e) = handle_config(command) {
+            eprintln!("Error handling config: {}", e);
+            process::exit(1);
+        }),
     }
 }
 
