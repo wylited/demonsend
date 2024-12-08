@@ -1,2 +1,8 @@
+**/*/target
+**/*/Cargo.lock
 /target
 Cargo.lock
+/protocol/target
+/protocol/Cargo.lock
+/daemon/target
+/daemon/Cargo.lock

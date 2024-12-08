@@ -55,8 +55,6 @@ pub struct AppState {
 
 }
 
-// Handler for /upload endpoint
-
 #[derive(Clone, Debug)]
 pub struct LocalSend {
     pub device_info: DeviceInfoV2,
