@@ -1,16 +1,14 @@
+use hyper::StatusCode;
 use tokio::{sync::Mutex, net::UdpSocket};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use axum::{
-    extract::State,
-    routing::{post, get, Router},
-    Json
+    body::Bytes, extract::{Query, State}, routing::{get, post, Router}, Json
 };
 use std::net::SocketAddr;
 
-use crate::{config::Config, protocol_v1::{handle_v1_info, handle_v1_register, DeviceInfoV1}};
-
+use crate::{config::Config, protocol_v1::{handle_v1_info, handle_v1_register, DeviceInfoV1}, upload::{handle_prepare_upload, handle_upload, FileTransferSession}};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DeviceInfoV2 {
@@ -22,7 +20,13 @@ pub struct DeviceInfoV2 {
     pub port: u16,
     pub protocol: String,
     pub download: bool,
+    #[serde(skip_serializing_if = "is_false", default)]
     pub announce: bool,
+}
+
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 impl DeviceInfoV2 {
@@ -46,13 +50,20 @@ pub struct AppState {
     pub device_info: DeviceInfoV2,
     pub udp_socket: Arc<UdpSocket>,
     pub peers: Arc<Mutex<HashMap<String, DeviceInfoV2>>>,
+    pub active_sessions: Arc<Mutex<HashMap<String, FileTransferSession>>>,
+    pub download_dir: Arc<PathBuf>,
+
 }
+
+// Handler for /upload endpoint
 
 #[derive(Clone, Debug)]
 pub struct LocalSend {
     pub device_info: DeviceInfoV2,
     pub udp_socket: Arc<UdpSocket>,
     pub peers: Arc<Mutex<HashMap<String, DeviceInfoV2>>>,
+    pub active_sessions: Arc<Mutex<HashMap<String, FileTransferSession>>>,
+    pub download_dir: Arc<PathBuf>,
 }
 
 #[derive(Deserialize)]
@@ -95,6 +106,8 @@ impl LocalSend {
             device_info,
             udp_socket: Arc::new(socket),
             peers: Arc::new(Mutex::new(HashMap::new())),
+            active_sessions: Arc::new(Mutex::new(HashMap::new())),
+            download_dir: Arc::new(PathBuf::from("downloads")),
         }
     }
 
@@ -118,6 +131,8 @@ impl LocalSend {
             device_info,
             udp_socket: Arc::new(socket),
             peers: Arc::new(Mutex::new(HashMap::new())),
+            active_sessions: Arc::new(Mutex::new(HashMap::new())),
+            download_dir: Arc::new(PathBuf::from(config.download_dir)),
         }
     }
 
@@ -126,10 +141,14 @@ impl LocalSend {
             device_info: self.device_info.clone(),
             udp_socket: self.udp_socket.clone(),
             peers: self.peers.clone(),
+            active_sessions: self.active_sessions.clone(),
+            download_dir: self.download_dir.clone(),
         };
 
         let app = Router::new()
             .route("/api/localsend/v2/register", post(handle_v2_register))
+            .route("/api/localsend/v2/prepare-upload", post(handle_prepare_upload))
+            .route("/api/localsend/v2/upload", post(handle_upload))
             .route("/api/localsend/v1/register", post(handle_v1_register))
             .route("/api/localsend/v1/info", get(handle_v1_info))
             .with_state(state);
@@ -141,7 +160,7 @@ impl LocalSend {
             axum::serve(listener, app).await.unwrap();
         });
 
-        println!("Started HTTP server");
+        println!("Started HTTP server on port {}", self.device_info.port);
         Ok(())
     }
 

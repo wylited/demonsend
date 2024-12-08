@@ -3,6 +3,7 @@ mod config;
 mod daemon;
 mod protocol;
 mod protocol_v1;
+mod upload;
 
 use crate::cli::{Cli, Commands, ConfigCommands};
 use clap::Parser;

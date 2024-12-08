@@ -51,7 +51,7 @@ pub fn daemon_logic(config: Config) -> Result<()> {
         }
 
         let listener = UnixListener::bind(SOCKET_PATH).unwrap();
-        let demonsend = LocalSend::new().await;
+        let demonsend = LocalSend::from_config(config).await;
 
         if let Err(e) = demonsend.start_http_server().await {
             eprintln!("Failed to start HTTP server: {}", e);

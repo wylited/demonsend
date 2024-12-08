@@ -1,0 +1,23 @@
+{
+  "info": {
+    "alias": "Nice Orange",
+    "version": "2.0",
+    "deviceModel": "Samsung",
+    "deviceType": "mobile",
+    "fingerprint": "random string",
+    "port": 53317,
+    "protocol": "https",
+    "download": true,
+    "announce": true
+  },
+  "files": {
+    "rand": {
+      "id": "rand",
+      "fileName": "snowcat.png",
+      "size": 200988,
+      "fileType": "image/jpeg",
+      "sha256": "e1051e98751131ec36dd72822952b0da84fca900bb375a6afc37a8eb0b919a18",
+      "preview": "snow CAT!"
+    }
+  }
+}

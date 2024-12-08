@@ -137,7 +137,7 @@ impl Config {
             .with_default(true)
             .prompt()?;
 
-        let annonunce = Confirm::new("Enable announcements?")
+        let announce = Confirm::new("Enable announcements?")
             .with_default(true)
             .prompt()?;
 
@@ -149,7 +149,7 @@ impl Config {
             port,
             protocol: protocol.to_string(),
             download,
-            annonunce,
+            announce,
         };
 
         config.save()?;
