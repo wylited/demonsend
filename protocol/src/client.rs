@@ -113,7 +113,7 @@ impl Client {
            return warp::reply::reply(); // early return
         }
 
-        self.add_peer(&new_device_info);
+        self.add_peer(&new_device_info); // TODO fix to be async
 
         // TODO implement response (http and udp, udp easy, http need to find socket addr)
 
@@ -130,7 +130,7 @@ impl Client {
                 .and(warp::post())
                 .and(warp::body::json())
                 .map(move |new_device_info: DeviceInfo| {
-                    client.handle_register(new_device_info)
+                    client.handle_register(new_device_info).await
                 })
         };
 

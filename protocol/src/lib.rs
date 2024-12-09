@@ -1,5 +1,3 @@
-#![warn(clippy::pedantic, clippy::cargo)]
-mod api;
 mod client;
 mod discovery;
 mod file;
