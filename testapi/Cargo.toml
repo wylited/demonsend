@@ -28,3 +28,5 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 url = "2.5.4"
 uuid = { version = "1.11.0", features = ["v4", "fast-rng"] }
 localsend-rs = { path = "../localsend-rs" }
+warp = "0.3.7"
+bytes = "1.9.0"

@@ -9,7 +9,7 @@ pub struct Discovery {
 
 impl Discovery {
     pub async fn new(port: u16) -> Result<Self> {
-        let socket = UdpSocket::bind(("0.0.0.0", port)).await.map_err(|e| {
+        let socket = UdpSocket::bind(("224.0.0.167", port)).await.map_err(|e| {
             LocalSendError::Unknown(format!("Failed to bind socket: {e}"))
         })?;
 
