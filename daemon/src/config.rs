@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use directories::{ProjectDirs, UserDirs};
 use inquire::{Confirm, Select, Text};
+use localsend_rs::DeviceType;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -10,7 +11,7 @@ pub struct Config {
     pub download_dir: String,
     pub alias: String,
     pub deviceModel: Option<String>,
-    pub deviceType: String,
+    pub deviceType: Option<DeviceType>,
     pub port: u16,
     pub protocol: String,
     pub download: bool,
@@ -29,7 +30,7 @@ impl Default for Config {
                     .to_string(),
                 alias: "demonsend".to_string(),
                 deviceModel: None,
-                deviceType: "headless".to_string(),
+                deviceType: Some(DeviceType::Headless),
                 port: 53317,
                 protocol: "http".to_string(),
                 download: true,
@@ -40,7 +41,7 @@ impl Default for Config {
             download_dir: "".to_string(),
             alias: "demonsend".to_string(),
             deviceModel: None,
-            deviceType: "headless".to_string(),
+            deviceType: Some(DeviceType::Headless),
             port: 53317,
             protocol: "http".to_string(),
             download: true,
@@ -110,11 +111,41 @@ impl Config {
             .prompt()
             .ok();
 
-        let device_types = vec!["mobile", "desktop", "web", "headless", "server"];
+        let device_types = vec![
+            None,
+            Some(DeviceType::Mobile),
+            Some(DeviceType::Desktop),
+            Some(DeviceType::Web),
+            Some(DeviceType::Headless),
+            Some(DeviceType::Server),
+        ];
 
-        let deviceType = Select::new("Select your device type:", device_types)
-            .with_starting_cursor(3) // headless as default
+        let device_type_strings: Vec<&str> = device_types
+            .iter()
+            .map(|dt| match dt {
+                None => "none",
+                Some(DeviceType::Mobile) => "mobile",
+                Some(DeviceType::Desktop) => "desktop",
+                Some(DeviceType::Web) => "web",
+                Some(DeviceType::Headless) => "headless",
+                Some(DeviceType::Server) => "server",
+                Some(DeviceType::Unknown) => "unknown",
+            })
+            .collect();
+
+        let device_type_selection = Select::new("Select your device type:", device_type_strings)
+            .with_starting_cursor(4) // headless as default
             .prompt()?;
+
+        let device_type = match device_type_selection {
+            "none" => None,
+            "mobile" => Some(DeviceType::Mobile),
+            "desktop" => Some(DeviceType::Desktop),
+            "web" => Some(DeviceType::Web),
+            "headless" => Some(DeviceType::Headless),
+            "server" => Some(DeviceType::Server),
+            _ => Some(DeviceType::Unknown),
+        };
 
         let protocols = vec!["http", "https"];
         let protocol = Select::new("Select protocol:", protocols)
@@ -145,7 +176,7 @@ impl Config {
             download_dir,
             alias,
             deviceModel,
-            deviceType: deviceType.to_string(),
+            deviceType: device_type,
             port,
             protocol: protocol.to_string(),
             download,

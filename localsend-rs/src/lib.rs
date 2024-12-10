@@ -1,6 +1,7 @@
-mod client;
-mod discovery;
-mod file;
+pub mod api;
+pub mod client;
+pub mod discovery;
+pub mod file;
 
 use file::FileMetadata;
 use serde::{Deserialize, Serialize};
@@ -40,7 +41,6 @@ impl DeviceInfo {
     #[must_use]
     pub fn new(
         alias: String,
-        version: String,
         deviceModel: Option<String>,
         deviceType: Option<DeviceType>,
         port: u16,
@@ -50,7 +50,7 @@ impl DeviceInfo {
     ) -> Self {
         Self {
             alias,
-            version,
+            version: "2.1".to_string(),
             deviceModel,
             deviceType,
             fingerprint: Uuid::new_v4().to_string(),
@@ -64,7 +64,6 @@ impl DeviceInfo {
     pub fn default() -> Self {
         Self::new(
             "localsend-rs".to_string(),
-            "2.1".to_string(),
             None,
             Some(DeviceType::Headless),
             53317,

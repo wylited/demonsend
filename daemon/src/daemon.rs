@@ -1,12 +1,13 @@
 use crate::config::Config;
-use crate::protocol::LocalSend;
 use anyhow::Result;
 use daemonize::Daemonize;
+use localsend_rs::DeviceInfo;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::process;
+use std::sync::Arc;
 
 pub const PID_FILE: &str = "/tmp/demonsend.pid";
 pub const LOG_FILE: &str = "/tmp/demonsend.log";
@@ -49,77 +50,14 @@ pub fn daemon_logic(config: Config) -> Result<()> {
         if std::path::Path::new(SOCKET_PATH).exists() {
             std::fs::remove_file(SOCKET_PATH).unwrap();
         }
-
         let listener = UnixListener::bind(SOCKET_PATH).unwrap();
-        let demonsend = LocalSend::from_config(config).await;
 
-        if let Err(e) = demonsend.start_http_server().await {
-            eprintln!("Failed to start HTTP server: {}", e);
-            return;
-        }
+        let info = DeviceInfo::new(config.alias.clone(), config.deviceModel.clone(), config.deviceType.clone(), config.port.clone(), config.protocol.clone(), config.download.clone(), config.announce.clone());
 
-        // Start the announcement loop
-        let _announcement_loop = tokio::spawn({
-            let announcement = demonsend.device_info.as_json();
-            let socket = demonsend.udp_socket.clone();
+        let client = localsend_rs::client::Client::new(info, Arc::new(PathBuf::from(config.download_dir.clone()))).await.unwrap();
 
-            async move {
-                loop {
-                    let _ = socket
-                        .send_to(announcement.as_bytes(), "224.0.0.167:53317")
-                        .await;
-                    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-                }
-            }
-        });
-
-        // Start the UDP listener loop
-        let _udp_listener = tokio::spawn({
-            let demonsend = demonsend.clone();
-
-            async move {
-                let mut buf = [0; 1024];
-                loop {
-                    if let Ok((size, _)) = demonsend.udp_socket.recv_from(&mut buf).await {
-                        if let Err(e) = demonsend.handle_announcement(&buf[..size]).await {
-                            eprintln!("Error handling announcement: {}", e);
-                        }
-                    }
-                }
-            }
-        });
-
-        // Handle Unix socket communications
-        loop {
-            match listener.accept() {
-                Ok((mut socket, _)) => {
-                    let mut buffer = [0; 1024];
-                    let n = socket.read(&mut buffer).unwrap();
-                    let message = String::from_utf8_lossy(&buffer[..n]);
-
-                    match message.as_ref() {
-                        "ping" => {
-                            socket.write_all(b"pong").unwrap();
-                        }
-                        "list" => {
-                            let peers = demonsend.peers.lock().await;
-                            let peers_json = serde_json::to_string(&*peers).unwrap();
-                            socket.write_all(peers_json.as_bytes()).unwrap();
-                        }
-                        "refresh" => {
-                            let mut peers = demonsend.peers.lock().await;
-                            peers.clear();
-                        }
-                        _ => {
-                            socket.write_all(b"unknown command").unwrap();
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error accepting connection: {}", e);
-                }
-            }
-        }
+        client.start_discovery();
+        client.start_server();
     });
     Ok(())
 }

@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::SystemTime};
 use tokio::sync::Mutex;
-use uuid::Uuid;
-use warp::{filters::body::bytes, Filter};
+use warp::{reply::{self, Reply}, Filter};
 use crate::{api::{handle_rejection, ApiError}, discovery::Discovery, file::FileMetadata, DeviceInfo, LocalSendError, PrepareUploadRequest, PrepareUploadResponse, Result};
 
 #[derive(Clone)]
@@ -34,7 +33,6 @@ pub enum SessionStatus {
 impl Client {
     pub async fn new(
         device_info: DeviceInfo,
-        peers: Arc<Mutex<HashMap<String, DeviceInfo>>>,
         download_dir: Arc<PathBuf>,
     ) -> Result<Self> {
         let port = device_info.port;
@@ -48,7 +46,7 @@ impl Client {
         Ok(Self {
             device_info,
             discovery: Arc::new(discovery),
-            peers,
+            peers: Arc::new(Mutex::new(HashMap::new())),
             download_dir,
             sessions: Arc::new(Mutex::new(HashMap::new())),
             client: reqwest::Client::new(),
@@ -67,70 +65,77 @@ impl Client {
         let discovery = self.discovery.clone();
         let device_info = self.device_info.clone();
         let _announcement_loop = tokio::spawn(async move {
-           loop {
-           if let Err(e) = discovery.announce(&device_info).await {
-           eprintln!("Failed to announce device info: {e}");
+            loop {
+                println!("discoverying stuff");
+                if let Err(e) = discovery.announce(&device_info).await {
+                    eprintln!("Failed to announce device info: {e}");
                 }
-           tokio::time::sleep(std::time::Duration::from_secs(5 * 60)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(5 * 60)).await;
             }
         });
 
         let rx_inst = self.clone();
         let rx_discovery = self.discovery.clone();
-        let client = reqwest::Client::new();
         let _listen_loop = tokio::spawn(async move {
-           loop {
-           match rx_discovery.listen().await {
-           Ok(peer) => {
-           rx_inst.add_peer(&peer.0).await;
-           if peer.0.announce { // Announce the device info to the peer if announce true
-           // Send a post request over http to the api /v2
-           rx_inst.client.post(&format!("http://{}/api/localsend/v2/register", peer.1))
-                                .json(&rx_inst.device_info)
-                                .send()
-                                .await
-                                .map_err(|e| {
-           eprintln!("Failed to send device info to peer: {}", e);
-                                }).ok();
+            loop {
+                match rx_discovery.listen().await {
+                    Ok(peer) => {
+                        rx_inst.add_peer(&peer.0).await;
+                        if peer.0.announce { // Announce the device info to the peer if announce true
+                            // Send a post request over http to the api /v2
+                            rx_inst.client.post(&format!("http://{}/api/localsend/v2/register", peer.1))
+                                          .json(&rx_inst.device_info)
+                                          .send()
+                                          .await
+                                          .map_err(|e| {
+                                              eprintln!("Failed to send device info to peer: {}", e);
+                                          }).ok();
 
-           // fallback to udp
-           rx_inst.discovery.announce(&rx_inst.device_info).await.map_err(|e| {
-           eprintln!("Failed to announce device info: {}", e);
+                            // fallback to udp
+                            rx_inst.discovery.announce(&rx_inst.device_info).await.map_err(|e| {
+                                eprintln!("Failed to announce device info: {}", e);
                             }).ok();
                         }
                     }
-           Err(e) => {
-           eprintln!("Failed to listen for peers: {e}");
+                    Err(e) => {
+                        eprintln!("Failed to listen for peers: {e}");
                     }
                 }
             }
         });
     }
 
-    pub fn handle_register(&self, new_device_info: DeviceInfo) -> impl warp::Reply {
+    pub async fn handle_register(&self, new_device_info: DeviceInfo) -> Result<impl Reply> {
         // if the finger print is the same, do nothing
         if new_device_info.fingerprint == self.device_info.fingerprint {
-           return warp::reply::reply(); // early return
+           return Ok(reply::reply()); // early return
         }
 
-        self.add_peer(&new_device_info); // TODO fix to be async
+        self.add_peer(&new_device_info).await; // TODO fix to be async
 
         // TODO implement response (http and udp, udp easy, http need to find socket addr)
 
-        warp::reply::reply()
+        Ok(reply::reply())
     }
 
     pub fn start_server(&self) {
         let client = Arc::new(self.clone());
 
-        // Register route
+        // Prepare register route
         let register_route = {
             let client = Arc::clone(&client);
             warp::path!("api" / "localsend" / "v2" / "register")
                 .and(warp::post())
                 .and(warp::body::json())
-                .map(move |new_device_info: DeviceInfo| {
-                    client.handle_register(new_device_info).await
+                .and_then(move |new_device_info: DeviceInfo| {
+                    let client = Arc::clone(&client);
+                    async move {
+                        client.handle_register(new_device_info)
+                              .await
+                              .map_err(|e| warp::reject::custom(ApiError::UnknownError(
+                                  "Registration failed".to_string()
+                              )))
+                    }
                 })
         };
 
@@ -212,9 +217,11 @@ impl Client {
 
         let port = self.device_info.port;
         tokio::spawn(async move {
+            println!("start service");
             warp::serve(routes)
                 .run(([0, 0, 0, 0], port))
                 .await;
+            println!("http died");
         });
     }
 }
