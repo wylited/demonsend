@@ -96,15 +96,3 @@ pub enum LocalSendError {
 }
 
 pub type Result<T> = std::result::Result<T, LocalSendError>;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PrepareUploadRequest {
-    pub device_info: DeviceInfo,
-    pub files: HashMap<String, FileMetadata>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PrepareUploadResponse {
-    pub session_id: String,
-    pub file_tokens: HashMap<String, String>, // file_id -> token
-}
