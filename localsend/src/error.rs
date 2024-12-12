@@ -6,6 +6,12 @@ pub enum LocalSendError {
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
 
+    #[error("Request error: {0}")]
+    RequestError(#[from] reqwest::Error),
+
+    #[error("Async join error: {0}")]
+    JoinError(#[from] tokio::task::JoinError),
+
     #[error("Invalid PIN")]
     InvalidPin,
 
