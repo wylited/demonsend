@@ -1,0 +1,3 @@
+[submodule "localsend"]
+	path = localsend
+	url = https://github.com/wylited/localsend
