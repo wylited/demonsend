@@ -25,7 +25,7 @@ impl Client {
             Ok((size, src)) => {
                 let received_msg = String::from_utf8_lossy(&buf[..size]);
                 println!("Received message from {}: {}", src, received_msg);
-                self.process_device(&received_msg).await;
+                self.process_device(&received_msg, src).await;
             }
             Err(e) => {
                 return Err(e.into()); // Convert error to your crate's error type

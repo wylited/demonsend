@@ -25,6 +25,7 @@ pub struct DeviceInfo {
     pub protocol: String,
     #[serde(default)]
     pub download: bool,
+    #[serde(default)]
     pub announce: Option<bool>,
 }
 

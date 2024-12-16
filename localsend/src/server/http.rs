@@ -1,10 +1,11 @@
 use axum::{
-    routing::{get, post}, Extension, Json, Router
+    extract::DefaultBodyLimit, routing::{get, post}, Extension, Json, Router
 };
+use tower_http::limit::RequestBodyLimitLayer;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
-use crate::{discovery::http::register_device, Client};
+use crate::{discovery::http::register_device, transfer::upload::{register_prepare_upload, register_upload}, Client};
 
 impl Client {
     pub async fn start_http_server(&self) -> crate::error::Result<()> {
@@ -28,7 +29,12 @@ impl Client {
                 let device = device.clone();
                 async move { Json(device) }
             }))
+            .route("/api/localsend/v2/prepare-upload", post(register_prepare_upload))
+            .route("/api/localsend/v2/upload", post(register_upload))
+            .layer(DefaultBodyLimit::disable())
+            .layer(RequestBodyLimitLayer::new(1024 * 1024 * 1024))
             .layer(Extension(self.device.clone()))
+            .layer(Extension(self.sessions.clone()))
             .with_state(peers)
 
     }

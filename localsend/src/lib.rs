@@ -2,12 +2,14 @@ pub mod discovery;
 pub mod error;
 pub mod models;
 pub mod server;
+pub mod transfer;
 
 use crate::models::device::DeviceInfo;
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use transfer::session::Session;
 
 #[derive(Clone)]
 pub struct Client {
@@ -16,7 +18,9 @@ pub struct Client {
     pub multicast_addr: SocketAddrV4,
     pub port: u16,
     pub peers: Arc<Mutex<HashMap<String, DeviceInfo>>>,
+    pub sessions: Arc<Mutex<HashMap<String, Session>>>, // Session ID to Session
     pub http_client: reqwest::Client,
+    pub download_dir: String,
 }
 
 impl Client {
@@ -28,6 +32,8 @@ impl Client {
         let port = 53317;
         let peers = Arc::new(Mutex::new(HashMap::new()));
         let http_client = reqwest::Client::new();
+        let sessions = Arc::new(Mutex::new(HashMap::new()));
+        let download_dir = "/home/wyli/Downloads".to_string();
 
         Ok(Self {
             device,
@@ -36,6 +42,8 @@ impl Client {
             port,
             peers,
             http_client,
+            sessions,
+            download_dir,
         })
     }
 

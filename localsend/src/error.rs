@@ -23,6 +23,9 @@ pub enum LocalSendError {
 
     #[error("Not a file")]
     NotAFile,
+
+    #[error("Peer not found")]
+    PeerNotFound,
 }
 
 pub type Result<T> = std::result::Result<T, LocalSendError>;
