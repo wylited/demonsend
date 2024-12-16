@@ -8,4 +8,14 @@ pub struct Session {
     pub file_tokens: HashMap<String, String>,
     pub receiver: DeviceInfo,
     pub sender: DeviceInfo,
+    pub status: SessionStatus,
+}
+
+#[derive(PartialEq)]
+pub enum SessionStatus {
+    Pending,
+    Active,
+    Completed,
+    Failed,
+    Cancelled,
 }

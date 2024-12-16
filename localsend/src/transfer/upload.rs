@@ -12,7 +12,7 @@ use native_dialog::MessageDialog;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use crate::transfer::session::Session;
+use crate::transfer::session::{Session, SessionStatus};
 use crate::{models::{device::DeviceInfo, file::FileMetadata}, Client};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,6 +57,7 @@ pub async fn register_prepare_upload(
             file_tokens: file_tokens.clone(),
             receiver: client.clone(),
             sender: req.info.clone(),
+            status: SessionStatus::Active
         };
 
         sessions.lock().await.insert(session_id.clone(), session);
@@ -88,6 +89,11 @@ pub async fn register_upload(
         Some(session) => session,
         None => return StatusCode::BAD_REQUEST.into_response(),
     };
+
+
+    if session.status != SessionStatus::Active {
+        return StatusCode::BAD_REQUEST.into_response()
+    }
 
     // Validate token
     if session.file_tokens.get(file_id) != Some(&token.to_string()) {
@@ -125,9 +131,6 @@ pub async fn register_upload(
             .into_response();
     }
 
-    // Update session status
-    // session.status = SessionStatus::Transferring;
-
     StatusCode::OK.into_response()
 }
 
@@ -138,4 +141,24 @@ pub struct UploadParams {
     session_id: String,
     file_id: String,
     token: String,
+}
+
+pub async fn register_cancel(
+    Query(params): Query<CancelParams>,
+    Extension(sessions): Extension<Arc<Mutex<HashMap<String, Session>>>>,
+) -> impl IntoResponse {
+    let mut sessions_lock = sessions.lock().await;
+    let session = match sessions_lock.get_mut(&params.session_id) {
+        Some(session) => session,
+        None => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    session.status = SessionStatus::Cancelled;
+    StatusCode::OK.into_response()
+}
+
+// Cancel parameters struct
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelParams {
+    session_id: String,
 }

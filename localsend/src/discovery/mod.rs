@@ -14,7 +14,6 @@ impl Client {
 
     async fn process_device(&self, message: &str, src: SocketAddr ) {
         if let Ok(device) = serde_json::from_str::<DeviceInfo>(message) {
-            println!("Received device: {:?}", device);
             if device.fingerprint == self.device.fingerprint {
                 return;
             }

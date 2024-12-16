@@ -11,7 +11,6 @@ impl Client {
             let url = format!("http://{}/api/localsend/v2/register", ip);
             let client = reqwest::Client::new();
             let res = client.post(&url).json(&self.device).send().await?;
-            println!("{:?}", res);
         }
         Ok(())
     }
@@ -28,7 +27,6 @@ impl Client {
         for ip in address_list {
             let url = format!("http://{}/api/localsend/v2/register", ip);
             let res = self.http_client.post(&url).json(&self.device).send().await?;
-            println!("{:?}", res);
         }
         Ok(())
     }
