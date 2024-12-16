@@ -2,6 +2,11 @@
 name = "localsend"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
+description = "A rust implementation of the localsend protocol"
+homepage = "https://github.com/wylited/demonsend"
+repository = "https://github.com/wylited/demonsend"
+readme = "https://github.com/wylited/demonsend"
 
 [dependencies]
 axum = { version = "0.7.9", features = ["json", "macros"] }
