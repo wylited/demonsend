@@ -10,20 +10,18 @@ async fn main() -> localsend::error::Result<()> {
     // Start background tasks
     let (server_handle, udp_handle, announcement_handle) = client.start().await?;
 
-    // let file_path = Path::new("/home/wyli/Repos/demonsend/example/snowcat.png");
-    // let metadata = FileMetadata::from_path(&file_path)?;
-    // let files = HashMap::from([(metadata.id.clone(), metadata)]);
+    let file_path = Path::new("/home/wyli/Repos/demonsend/example/snowcat.png");
+    let metadata = FileMetadata::from_path(&file_path)?;
+    let files = HashMap::from([(metadata.id.clone(), metadata)]);
 
-    // // wait until 2 peers are found
-    // while client.peers.lock().await.len() < 2 {
-    //     println!("waiting for peers... currently {:?}", client.peers.lock().await.len());
-    //     tokio::time::sleep(Duration::from_secs(1)).await;
-    // }
+    // wait until a peer is found
+    while client.peers.lock().await.len() < 1 {
+        println!("waiting for peers... currently {:?}", client.peers.lock().await.len());
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
 
-    // println!("files: {:?}", files);
-    // println!("peers: {:?}", client.peers.lock().await);
-
-    // // client.prepare_upload(peer.0.to_string(), files).await?;
+    println!("files: {:?}", files);
+    println!("peers: {:?}", client.peers.lock().await);
 
     server_handle.await?;
     udp_handle.await?;

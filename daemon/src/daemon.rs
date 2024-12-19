@@ -1,9 +1,12 @@
 use crate::config::Config;
 use anyhow::Result;
 use daemonize::Daemonize;
-use localsend_rs::DeviceInfo;
+use localsend::Client;
+use localsend::models::device::DeviceInfo;
+use tokio::net::UdpSocket;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::process;
@@ -52,13 +55,27 @@ pub fn daemon_logic(config: Config) -> Result<()> {
         }
         let listener = UnixListener::bind(SOCKET_PATH).unwrap();
 
-        let info = DeviceInfo::new(config.alias.clone(), config.deviceModel.clone(), config.deviceType.clone(), config.port.clone(), config.protocol.clone(), config.download.clone(), config.announce.clone());
+        let info = DeviceInfo {
+            alias: config.alias.clone(),
+            version: "2.1".to_string(),
+            device_model: config.deviceModel.clone(),
+            device_type: config.deviceType.clone(),
+            fingerprint: "demonsend only!".to_string(),
+            port: config.port.clone(),
+            protocol: "http".to_string(),
+            download: true,
+            announce: Some(true),
+        };
 
-        let client = localsend_rs::client::Client::new(info, Arc::new(PathBuf::from(config.download_dir.clone()))).await.unwrap();
+        let client = Client::with_config(info.clone(), config.port.clone(), config.download_dir.clone()).await.unwrap();
 
-        client.start_discovery();
-        client.start_server();
+        let (server_handle, udp_handle, announcement_handle) = client.start().await.unwrap();
+        server_handle.await.unwrap();
+        udp_handle.await.unwrap();
+        announcement_handle.await.unwrap();
+
     });
+
     Ok(())
 }
 

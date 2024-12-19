@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use directories::{ProjectDirs, UserDirs};
 use inquire::{Confirm, Select, Text};
-use localsend_rs::DeviceType;
+use localsend::models::device::DeviceType;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
