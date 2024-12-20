@@ -20,8 +20,10 @@ async fn main() -> localsend::error::Result<()> {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    println!("files: {:?}", files);
-    println!("peers: {:?}", client.peers.lock().await);
+    println!("received a peer!");
+
+    let first_key = client.peers.lock().await.keys().next().unwrap().clone();
+    println!("response: {:?}", client.prepare_upload(first_key.clone(), files).await);
 
     server_handle.await?;
     udp_handle.await?;
