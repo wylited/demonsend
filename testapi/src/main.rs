@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{collections::HashMap, path::{Path, PathBuf}, time::Duration};
 
 use localsend::{models::file::FileMetadata, Client};
 
@@ -10,9 +10,7 @@ async fn main() -> localsend::error::Result<()> {
     // Start background tasks
     let (server_handle, udp_handle, announcement_handle) = client.start().await?;
 
-    let file_path = Path::new("/home/wyli/Repos/demonsend/example/snowcat.png");
-    let metadata = FileMetadata::from_path(&file_path)?;
-    let files = HashMap::from([(metadata.id.clone(), metadata)]);
+    let file_path = PathBuf::from("/home/wyli/Repos/demonsend/example/IMG-20240924-WA0002.jpg");
 
     // wait until a peer is found
     while client.peers.lock().await.len() < 1 {
@@ -23,8 +21,7 @@ async fn main() -> localsend::error::Result<()> {
     println!("received a peer!");
 
     let first_key = client.peers.lock().await.keys().next().unwrap().clone();
-    println!("response: {:?}", client.prepare_upload(first_key.clone(), files).await);
-
+    println!("{:?}", client.send_file(first_key.clone(), file_path).await);
     server_handle.await?;
     udp_handle.await?;
     announcement_handle.await?;
