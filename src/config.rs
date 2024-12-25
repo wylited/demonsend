@@ -7,11 +7,12 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Config {
     pub download_dir: String,
     pub alias: String,
-    pub deviceModel: Option<String>,
-    pub deviceType: Option<DeviceType>,
+    pub device_model: Option<String>,
+    pub device_type: Option<DeviceType>,
     pub port: u16,
     pub protocol: String,
     pub download: bool,
@@ -29,8 +30,8 @@ impl Default for Config {
                     .unwrap()
                     .to_string(),
                 alias: "demonsend".to_string(),
-                deviceModel: None,
-                deviceType: Some(DeviceType::Headless),
+                device_model: None,
+                device_type: Some(DeviceType::Headless),
                 port: 53317,
                 protocol: "http".to_string(),
                 download: true,
@@ -40,8 +41,8 @@ impl Default for Config {
         return Config {
             download_dir: "".to_string(),
             alias: "demonsend".to_string(),
-            deviceModel: None,
-            deviceType: Some(DeviceType::Headless),
+            device_model: None,
+            device_type: Some(DeviceType::Headless),
             port: 53317,
             protocol: "http".to_string(),
             download: true,
@@ -94,7 +95,10 @@ impl Config {
             .unwrap_or_default();
 
         let download_dir = loop {
-            if let Ok(input) = Text::new("Enter your preferred downloads directory:").prompt() {
+            if let Ok(input) = Text::new("Enter your preferred downloads directory:")
+                .with_default(&default_dirs)
+                .prompt()
+            {
                 if let Ok(path) = fs::canonicalize(&input) {
                     break path.to_string_lossy().to_string();
                 }
@@ -106,7 +110,7 @@ impl Config {
             .with_default("demonsend")
             .prompt()?;
 
-        let deviceModel = Text::new("Enter your device model:")
+        let device_model = Text::new("Enter your device model:")
             .with_default("")
             .prompt()
             .ok();
@@ -175,8 +179,8 @@ impl Config {
         let config = Config {
             download_dir,
             alias,
-            deviceModel,
-            deviceType: device_type,
+            device_model,
+            device_type: device_type,
             port,
             protocol: protocol.to_string(),
             download,

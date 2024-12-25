@@ -4,6 +4,7 @@ mod daemon;
 
 use crate::cli::{Cli, Commands, ConfigCommands};
 use clap::Parser;
+use daemon::send_command;
 use std::process;
 
 fn main() -> anyhow::Result<()> {
@@ -14,14 +15,20 @@ fn main() -> anyhow::Result<()> {
         Commands::Start => daemon::start_daemon(crate::config::Config::load()?),
         Commands::Status => daemon::check_status(),
         Commands::Stop => daemon::stop_daemon(),
-        Commands::Send { command } => Ok(if let Err(e) = daemon::send_command(command) {
-            eprintln!("Error sending ping: {}", e);
-            process::exit(1);
-        }),
+        Commands::Restart => {
+            daemon::stop_daemon()?;
+            daemon::start_daemon(crate::config::Config::load()?)
+        }
         Commands::Config { command } => Ok(if let Err(e) = handle_config(command) {
             eprintln!("Error handling config: {}", e);
             process::exit(1);
         }),
+        Commands::Version => send_command(&"version".to_string()),
+        Commands::Peers => send_command(&"peers".to_string()),
+        Commands::Sessions => send_command(&"sessions".to_string()),
+        Commands::Info => send_command(&"info".to_string()),
+        Commands::Refresh => send_command(&"refresh".to_string()),
+        Commands::File { peer, path } => send_command(&format!("send {} {}", peer, path.display())),
     }
 }
 
