@@ -30,4 +30,4 @@ tower-http = { version = "0.6.2", features = ["trace"] }
 tracing = "0.1.41"
 url = "2.5.4"
 uuid = { version = "1.11.0", features = ["v4", "fast-rng"] }
-localsend = "0.2.1"
+localsend = { path = "./localsend" }

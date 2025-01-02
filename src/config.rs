@@ -94,17 +94,9 @@ impl Config {
             .and_then(|dirs| dirs.download_dir().map(|p| p.to_string_lossy().to_string()))
             .unwrap_or_default();
 
-        let download_dir = loop {
-            if let Ok(input) = Text::new("Enter your preferred downloads directory:")
-                .with_default(&default_dirs)
-                .prompt()
-            {
-                if let Ok(path) = fs::canonicalize(&input) {
-                    break path.to_string_lossy().to_string();
-                }
-                println!("Please enter a valid path");
-            }
-        };
+        let download_dir = Text::new("Enter your preferred downloads directory:")
+            .with_default(&default_dirs)
+            .prompt()?;
 
         let alias = Text::new("Enter your alias:")
             .with_default("demonsend")
