@@ -143,7 +143,7 @@ impl Config {
             _ => Some(DeviceType::Unknown),
         };
 
-        let protocols = vec!["http", "https"];
+        let protocols = vec!["http"];
         let protocol = Select::new("Select protocol:", protocols)
             .with_starting_cursor(0) // https as default
             .prompt()?;
